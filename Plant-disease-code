@@ -1,0 +1,150 @@
+import tensorflow as tf 
+import matplotlib.pyplot as plt 
+import numpy as np 
+import os 
+import pathlib 
+import random
+from keras.utils import load_img
+from keras_preprocessing import image
+
+#Importing Data
+path = "D:\Antara\Plant Disease Detection\Plant_leave_diseases_dataset_with_augmentation"
+data_dir = pathlib.Path(path)
+
+#Getting class names
+class_names = np.array([sorted(item.name for item in data_dir.glob("*"))])
+print("Class Name:", class_names)
+
+#Total no. of images
+imgCount = len(list(data_dir.glob("*/*.jpg") ))
+print("Total no. of images:", imgCount)
+
+#Example Image
+def plot(path,class_name):
+    print(path)
+    plt.figure(figsize=(8,8))
+    
+    img = plt.imread(path)
+    
+    plt.xticks([])
+    plt.yticks([])
+    plt.title("Class Name: "+class_name)
+    plt.imshow(img)
+
+Mild_Demented = random.choice(list(data_dir.glob("Mild_Demented/*.jpg")))
+plot(str(Mild_Demented),"Mild_Demented")
+
+Moderate_Demented = random.choice(list(data_dir.glob("Moderate_Demented/*.jpg")))
+plot(str(Moderate_Demented),"Moderate_Demented")
+
+#Splitting Dataset
+batch_size = 32
+img_height = 224
+img_width = 224
+
+from keras.utils import image_dataset_from_directory
+from keras.utils import image_dataset_from_directory
+
+train_data = image_dataset_from_directory(
+                  data_dir,
+                  validation_split=0.2,
+                  subset="training",
+                  seed=123,
+                  image_size=(img_height, img_width),
+                  batch_size=batch_size)
+
+val_data = image_dataset_from_directory(data_dir,
+                                        validation_split=0.2,
+                                        subset="validation",
+                                        seed=123,
+                                        image_size=(img_height,img_width),
+                                        batch_size=batch_size)
+
+#Building Model
+from keras import layers
+
+model = tf.keras.Sequential([
+    
+    layers.Rescaling(1./255, input_shape=(img_height, img_width, 3)),
+    
+    layers.Conv2D(16, 3, padding='same', activation='relu'),
+    layers.MaxPooling2D(),
+        
+    layers.Conv2D(32, 3, padding='same', activation='relu'),
+    layers.MaxPooling2D(),
+        
+    layers.Conv2D(64, 3, padding='same', activation='relu'),
+    layers.MaxPooling2D(),
+        
+    layers.Dropout(0.5),
+    layers.Flatten(),
+        
+    layers.Dense(128, activation='relu'),
+    layers.Dense(4,activation="softmax")
+])
+
+#Compiling Model
+model.compile(optimizer="Adam",
+            loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+            metrics=["accuracy"])
+
+#Fitting Model
+epochs = 5 
+history = model.fit(train_data,
+                    epochs=epochs,
+                    validation_data=val_data, 
+                    batch_size=batch_size)
+
+#Plotting Results
+acc = history.history['accuracy']
+val_acc =  history.history['val_accuracy']
+
+loss = history.history['loss']
+val_loss = history.history['val_loss']
+
+epochs_range = range(epochs)
+
+plt.figure(figsize=(8,8))
+plt.subplot(1,2,1)
+plt.plot(epochs_range,acc,label='Accuracy')
+plt.plot(epochs_range,val_acc,label="Validation Accuracy")
+plt.legend()
+
+plt.subplot(1,2,2)
+plt.plot(epochs_range,loss,label='Loss')
+plt.plot(epochs_range,val_loss,label="Validation Loss")
+plt.legend()
+plt.show()
+
+
+#Prediction
+'''
+class_names = val_data.class_names
+for images in val_data.take(1):
+    for i in range(0,1):
+
+        img = images[i].numpy().astype("uint8")
+        img = tf.expand_dims(img, axis=0)
+        
+        predictions = model.predict(img)
+        predicted_class = np.argmax(predictions)
+        print("Predicted Class: ",class_names[predicted_class])
+'''
+
+from keras.applications.resnet import ResNet50
+from keras.applications.resnet import preprocess_input, decode_predictions
+class_names = val_data.class_names
+def classify(img_path):
+    img = image.load_img(img_path, target_size=(224, 224))
+    img_array = image.img_to_array(img)
+
+    img_batch = np.expand_dims(img_array, axis=0)
+
+    img_preprocessed = preprocess_input(img_batch)
+
+    predictions = model.predict(img_preprocessed)
+    predicted_class = np.argmax(predictions)
+        
+    print("Predicted Class: ",class_names[predicted_class])
+
+classify("D:\\Khushi\\Plant Disease Detection\\Val sample\\image (1000).JPG")
